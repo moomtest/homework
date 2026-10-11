@@ -1,6 +1,6 @@
 'use strict';
-const CACHE = 'teacher-homework-local-v8';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest'];
+const CACHE = 'teacher-homework-local-v9';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest', './assets/mascot.png'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 self.addEventListener('activate', event => event.waitUntil((async()=>{
   const names=await caches.keys();

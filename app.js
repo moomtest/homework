@@ -123,14 +123,16 @@ $('#show').onclick=()=>{
   $('#viewer-heading').textContent=`${id}番の提出状況`;
   const isHoliday=isExempt(selectedDate,id-1);
   $('#viewer-date').textContent=`${selectedDate} の提出記録${isHoliday?'（宿題の提出が不要な日）':''}`;
+  $('#mascot-message').textContent=isHoliday?'今日は提出しなくて大丈夫だよ。':saved.every(Boolean)?'ぜんぶ提出できたね！すごい！':saved.some(Boolean)?'「できた！」がふえているね！':'ひとつずつ、いっしょに進もう！';
   $('#viewer-items').replaceChildren();
   saved.forEach((value,index)=>{const li=document.createElement('li');const name=document.createElement('strong');name.textContent=`${index+1} ${SUBJECTS[index]}`;const status=document.createElement('span');status.textContent=isHoliday?'提出不要':value?'✓ 提出済み':'未確認';status.className=!isHoliday&&value?'submitted':'pending';const details=document.createElement('div');details.className='viewer-result';const total=document.createElement('small');total.className='viewer-total';total.textContent=`累計 ${totalsFor(id-1)[index]}回`;details.append(status,total);li.append(name,details);$('#viewer-items').append(li);});
   renderTrophies(id-1);
+  document.body.classList.add('pupil-view');
   $('#teacher').hidden=true;$('#viewer').hidden=false;notify('');$('#viewer-heading').tabIndex=-1;$('#viewer-heading').focus();window.scrollTo(0,0);
 };
-$('#back').onclick=()=>{$('#viewer').hidden=true;$('#teacher').hidden=false;$('#show').focus();};
+$('#back').onclick=()=>{document.body.classList.remove('pupil-view');$('#viewer').hidden=true;$('#teacher').hidden=false;$('#show').focus();};
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
-window.addEventListener('storage',event=>{if(event.key!==KEY&&event.key!==null)return;blocked=true;$('#viewer').hidden=true;$('#teacher').hidden=false;render();notify('別のタブで保存内容が変更されました。画面を再読み込みしてください。');});
+window.addEventListener('storage',event=>{if(event.key!==KEY&&event.key!==null)return;blocked=true;document.body.classList.remove('pupil-view');$('#viewer').hidden=true;$('#teacher').hidden=false;render();notify('別のタブで保存内容が変更されました。画面を再読み込みしてください。');});
 loadDate();
 if('serviceWorker' in navigator && location.protocol!=='file:'){
   navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{$('#offline-status').textContent='オフライン用の画面を準備しました。通信を切って再度開けるか確認してください。';}).catch(()=>{$('#offline-status').textContent='オフライン用の準備ができませんでした。記録はこのブラウザに保存します。';});

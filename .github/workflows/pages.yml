@@ -11,6 +11,7 @@ on:
       - sw.js
       - manifest.webmanifest
       - update.html
+      - assets/mascot.png
       - .github/workflows/pages.yml
 
 permissions:
@@ -34,6 +35,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/homework-site"
           cp index.html style.css app.js sw.js manifest.webmanifest update.html "$RUNNER_TEMP/homework-site/"
+          mkdir -p "$RUNNER_TEMP/homework-site/assets"
+          cp assets/mascot.png "$RUNNER_TEMP/homework-site/assets/"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
