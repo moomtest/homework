@@ -10,9 +10,11 @@ function validate(data) {
   for(const [date,rows] of Object.entries(data.days)) {
     if(!validDate(date)||!Array.isArray(rows)||rows.length!==30||rows.some(r=>!Array.isArray(r)||r.length!==3||r.some(v=>typeof v!=='boolean'))) throw new Error('保存データを読み込めません。');
   }
+  if(data.holidays===undefined)data.holidays=[];
+  if(!Array.isArray(data.holidays)||data.holidays.some(date=>!validDate(date)))throw new Error('休みの設定を読み込めません。');
   return data;
 }
-let data={version:1,days:{}}, baseline=null, rows=blank(), selectedDate=dateKey(), dirty=false, blocked=false;
+let data={version:1,days:{},holidays:[]}, baseline=null, rows=blank(), selectedDate=dateKey(), dirty=false, blocked=false, holiday=false;
 function notify(text) { $('#message').textContent=text; }
 try {
   baseline=localStorage.getItem(KEY);
@@ -25,13 +27,16 @@ $('#date').value=selectedDate;
 for(let id=1;id<=30;id++){const option=document.createElement('option');option.value=id;option.textContent=`${id}番`;$('#student').append(option);}
 function totalsFor(studentIndex) {
   const totals=[0,0,0];
-  for(const dayRows of Object.values(data.days)) dayRows[studentIndex].forEach((submitted,index)=>{if(submitted)totals[index]++;});
+  for(const [date,dayRows] of Object.entries(data.days)) {
+    if(data.holidays.includes(date))continue;
+    dayRows[studentIndex].forEach((submitted,index)=>{if(submitted)totals[index]++;});
+  }
   return totals;
 }
 function streaksFor(studentIndex) {
   const current=[0,0,0], best=[0,0,0];
   for(const date of Object.keys(data.days).sort()) {
-    if(!data.days[date].some(row=>row.some(Boolean))) continue;
+    if(data.holidays.includes(date)||!data.days[date].some(row=>row.some(Boolean))) continue;
     data.days[date][studentIndex].forEach((submitted,index)=>{
       current[index]=submitted?current[index]+1:0;
       best[index]=Math.max(best[index],current[index]);
@@ -71,18 +76,22 @@ function updateState() {
   $('#save-state').textContent=dirty?'未保存の変更あり':'保存済みの内容';
   $('#show').disabled=blocked||dirty;
   $('#save').disabled=blocked||!dirty;
-  $('#summary').textContent=SUBJECTS.map((s,i)=>`${s}：${rows.filter(r=>r[i]).length}/30 提出済み`).join('　');
+  $('#holiday').checked=holiday;
+  $('#holiday').disabled=blocked;
+  $('#holiday-note').hidden=!holiday;
+  $('#summary').textContent=holiday?'提出不要の日：累計・連続回数・トロフィー判定には含めません。':SUBJECTS.map((s,i)=>`${s}：${rows.filter(r=>r[i]).length}/30 提出済み`).join('　');
 }
 function render() {
   $('#rows').replaceChildren();
   const bulk=document.createElement('tr');const heading=document.createElement('th');heading.textContent='一括入力';bulk.append(heading);
-  SUBJECTS.forEach((subject,index)=>{const td=document.createElement('td');for(const [value,label] of [[true,'全員提出済み'],[false,'全員未確認']]){const button=document.createElement('button');button.textContent=label;button.disabled=blocked;button.setAttribute('aria-label',`${subject} ${label}`);button.onclick=()=>{
+  SUBJECTS.forEach((subject,index)=>{const td=document.createElement('td');for(const [value,label] of [[true,'全員提出済み'],[false,'全員未確認']]){const button=document.createElement('button');button.textContent=label;button.disabled=blocked||holiday;button.setAttribute('aria-label',`${subject} ${label}`);button.onclick=()=>{
     if(!value&&!confirm(`${subject}を全員「未確認」に戻しますか？`))return;
     rows.forEach(row=>row[index]=value);dirty=true;render();notify('一括入力しました。「提出状況を保存」を押してください。');
   };td.append(button);}bulk.append(td);});$('#rows').append(bulk);
-  rows.forEach((row,index)=>{const tr=document.createElement('tr');const th=document.createElement('th');th.scope='row';th.textContent=`${index+1}番`;tr.append(th);row.forEach((value,subject)=>{const td=document.createElement('td');const check=document.createElement('input');check.type='checkbox';check.checked=value;check.disabled=blocked;check.setAttribute('aria-label',`${index+1}番 ${SUBJECTS[subject]} 提出済み`);check.onchange=()=>{rows[index][subject]=check.checked;dirty=true;updateState();notify('未保存の変更があります。保存してから児童に見せてください。');};const total=document.createElement('small');total.className='total';total.dataset.totalStudent=index;total.dataset.totalSubject=subject;td.append(check,total);tr.append(td);});$('#rows').append(tr);});updateState();
+  rows.forEach((row,index)=>{const tr=document.createElement('tr');const th=document.createElement('th');th.scope='row';th.textContent=`${index+1}番`;tr.append(th);row.forEach((value,subject)=>{const td=document.createElement('td');const check=document.createElement('input');check.type='checkbox';check.checked=value;check.disabled=blocked||holiday;check.setAttribute('aria-label',`${index+1}番 ${SUBJECTS[subject]} 提出済み`);check.onchange=()=>{rows[index][subject]=check.checked;dirty=true;updateState();notify('未保存の変更があります。保存してから児童に見せてください。');};const total=document.createElement('small');total.className='total';total.dataset.totalStudent=index;total.dataset.totalSubject=subject;td.append(check,total);tr.append(td);});$('#rows').append(tr);});updateState();
 }
-function loadDate() { rows=(data.days[selectedDate]||blank()).map(r=>[...r]);dirty=false;render(); }
+function loadDate() { rows=(data.days[selectedDate]||blank()).map(r=>[...r]);holiday=data.holidays.includes(selectedDate);dirty=false;render(); }
+$('#holiday').onchange=()=>{holiday=$('#holiday').checked;dirty=true;render();notify('休みの設定を変更しました。「提出状況を保存」を押すと集計に反映されます。');};
 $('#date').onchange=()=>{
   const next=$('#date').value;
   if(!validDate(next)){ $('#date').value=selectedDate;notify('正しい日付を選んでください。');return; }
@@ -93,19 +102,22 @@ $('#save').onclick=()=>{
   if(blocked||!dirty)return;
   try {
     if(localStorage.getItem(KEY)!==baseline){blocked=true;render();notify('別のタブで記録が変更されました。入力内容を控えてから画面を再読み込みしてください。上書きはしていません。');return;}
-    const next={version:1,days:{...data.days,[selectedDate]:rows.map(r=>[...r])}};
+    const holidays=data.holidays.filter(date=>date!==selectedDate);
+    if(holiday)holidays.push(selectedDate);
+    const next={version:1,days:{...data.days,[selectedDate]:rows.map(r=>[...r])},holidays:holidays.sort()};
     const serialized=JSON.stringify(next);localStorage.setItem(KEY,serialized);
     if(localStorage.getItem(KEY)!==serialized)throw new Error('Storage failed');
-    baseline=serialized;data=next;dirty=false;updateState();notify('この端末に保存しました。児童に見せられます。');
+    baseline=serialized;data=next;dirty=false;render();notify('この端末に保存しました。児童に見せられます。');
   } catch {notify('保存できませんでした。変更はまだ保存されていません。ブラウザの保存設定を確認してください。');}
 };
 $('#show').onclick=()=>{
   if(dirty||blocked)return;
   const id=Number($('#student').value);const saved=(data.days[selectedDate]||blank())[id-1];
   $('#viewer-heading').textContent=`${id}番の提出状況`;
-  $('#viewer-date').textContent=`${selectedDate} の提出記録`;
+  const isHoliday=data.holidays.includes(selectedDate);
+  $('#viewer-date').textContent=`${selectedDate} の提出記録${isHoliday?'（宿題の提出が不要な日）':''}`;
   $('#viewer-items').replaceChildren();
-  saved.forEach((value,index)=>{const li=document.createElement('li');const name=document.createElement('strong');name.textContent=`${index+1} ${SUBJECTS[index]}`;const status=document.createElement('span');status.textContent=value?'✓ 提出済み':'未確認';status.className=value?'submitted':'pending';const details=document.createElement('div');details.className='viewer-result';const total=document.createElement('small');total.className='viewer-total';total.textContent=`累計 ${totalsFor(id-1)[index]}回`;details.append(status,total);li.append(name,details);$('#viewer-items').append(li);});
+  saved.forEach((value,index)=>{const li=document.createElement('li');const name=document.createElement('strong');name.textContent=`${index+1} ${SUBJECTS[index]}`;const status=document.createElement('span');status.textContent=isHoliday?'提出不要':value?'✓ 提出済み':'未確認';status.className=!isHoliday&&value?'submitted':'pending';const details=document.createElement('div');details.className='viewer-result';const total=document.createElement('small');total.className='viewer-total';total.textContent=`累計 ${totalsFor(id-1)[index]}回`;details.append(status,total);li.append(name,details);$('#viewer-items').append(li);});
   renderTrophies(id-1);
   $('#teacher').hidden=true;$('#viewer').hidden=false;notify('');$('#viewer-heading').tabIndex=-1;$('#viewer-heading').focus();window.scrollTo(0,0);
 };
