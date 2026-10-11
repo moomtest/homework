@@ -31,6 +31,7 @@ function totalsFor(studentIndex) {
 function streaksFor(studentIndex) {
   const current=[0,0,0], best=[0,0,0];
   for(const date of Object.keys(data.days).sort()) {
+    if(!data.days[date].some(row=>row.some(Boolean))) continue;
     data.days[date][studentIndex].forEach((submitted,index)=>{
       current[index]=submitted?current[index]+1:0;
       best[index]=Math.max(best[index],current[index]);
