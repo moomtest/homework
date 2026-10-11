@@ -23,7 +23,18 @@ try {
 }
 $('#date').value=selectedDate;
 for(let id=1;id<=30;id++){const option=document.createElement('option');option.value=id;option.textContent=`${id}番`;$('#student').append(option);}
+function totalsFor(studentIndex) {
+  const totals=[0,0,0];
+  for(const dayRows of Object.values(data.days)) dayRows[studentIndex].forEach((submitted,index)=>{if(submitted)totals[index]++;});
+  return totals;
+}
+function updateTotals() {
+  document.querySelectorAll('[data-total-student]').forEach(element=>{
+    element.textContent=`累計 ${totalsFor(Number(element.dataset.totalStudent))[Number(element.dataset.totalSubject)]}回`;
+  });
+}
 function updateState() {
+  updateTotals();
   $('#save-state').textContent=dirty?'未保存の変更あり':'保存済みの内容';
   $('#show').disabled=blocked||dirty;
   $('#save').disabled=blocked||!dirty;
@@ -36,7 +47,7 @@ function render() {
     if(!value&&!confirm(`${subject}を全員「未確認」に戻しますか？`))return;
     rows.forEach(row=>row[index]=value);dirty=true;render();notify('一括入力しました。「提出状況を保存」を押してください。');
   };td.append(button);}bulk.append(td);});$('#rows').append(bulk);
-  rows.forEach((row,index)=>{const tr=document.createElement('tr');const th=document.createElement('th');th.scope='row';th.textContent=`${index+1}番`;tr.append(th);row.forEach((value,subject)=>{const td=document.createElement('td');const check=document.createElement('input');check.type='checkbox';check.checked=value;check.disabled=blocked;check.setAttribute('aria-label',`${index+1}番 ${SUBJECTS[subject]} 提出済み`);check.onchange=()=>{rows[index][subject]=check.checked;dirty=true;updateState();notify('未保存の変更があります。保存してから児童に見せてください。');};td.append(check);tr.append(td);});$('#rows').append(tr);});updateState();
+  rows.forEach((row,index)=>{const tr=document.createElement('tr');const th=document.createElement('th');th.scope='row';th.textContent=`${index+1}番`;tr.append(th);row.forEach((value,subject)=>{const td=document.createElement('td');const check=document.createElement('input');check.type='checkbox';check.checked=value;check.disabled=blocked;check.setAttribute('aria-label',`${index+1}番 ${SUBJECTS[subject]} 提出済み`);check.onchange=()=>{rows[index][subject]=check.checked;dirty=true;updateState();notify('未保存の変更があります。保存してから児童に見せてください。');};const total=document.createElement('small');total.className='total';total.dataset.totalStudent=index;total.dataset.totalSubject=subject;td.append(check,total);tr.append(td);});$('#rows').append(tr);});updateState();
 }
 function loadDate() { rows=(data.days[selectedDate]||blank()).map(r=>[...r]);dirty=false;render(); }
 $('#date').onchange=()=>{
@@ -61,7 +72,7 @@ $('#show').onclick=()=>{
   $('#viewer-heading').textContent=`${id}番の提出状況`;
   $('#viewer-date').textContent=`${selectedDate} の提出記録`;
   $('#viewer-items').replaceChildren();
-  saved.forEach((value,index)=>{const li=document.createElement('li');const name=document.createElement('strong');name.textContent=`${index+1} ${SUBJECTS[index]}`;const status=document.createElement('span');status.textContent=value?'✓ 提出済み':'未確認';status.className=value?'submitted':'pending';li.append(name,status);$('#viewer-items').append(li);});
+  saved.forEach((value,index)=>{const li=document.createElement('li');const name=document.createElement('strong');name.textContent=`${index+1} ${SUBJECTS[index]}`;const status=document.createElement('span');status.textContent=value?'✓ 提出済み':'未確認';status.className=value?'submitted':'pending';const details=document.createElement('div');details.className='viewer-result';const total=document.createElement('small');total.className='viewer-total';total.textContent=`累計 ${totalsFor(id-1)[index]}回`;details.append(status,total);li.append(name,details);$('#viewer-items').append(li);});
   $('#teacher').hidden=true;$('#viewer').hidden=false;notify('');$('#viewer-heading').tabIndex=-1;$('#viewer-heading').focus();window.scrollTo(0,0);
 };
 $('#back').onclick=()=>{$('#viewer').hidden=true;$('#teacher').hidden=false;$('#show').focus();};
