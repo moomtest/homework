@@ -28,6 +28,38 @@ function totalsFor(studentIndex) {
   for(const dayRows of Object.values(data.days)) dayRows[studentIndex].forEach((submitted,index)=>{if(submitted)totals[index]++;});
   return totals;
 }
+function streaksFor(studentIndex) {
+  const current=[0,0,0], best=[0,0,0];
+  for(const date of Object.keys(data.days).sort()) {
+    data.days[date][studentIndex].forEach((submitted,index)=>{
+      current[index]=submitted?current[index]+1:0;
+      best[index]=Math.max(best[index],current[index]);
+    });
+  }
+  return {current,best};
+}
+function renderTrophies(studentIndex) {
+  const totals=totalsFor(studentIndex), streaks=streaksFor(studentIndex);
+  const titles={total:['はじめの一歩','こつこつ名人','積み重ねの達人'],streak:['連続チャレンジャー','継続名人','継続の達人']};
+  $('#trophy-subjects').replaceChildren();
+  SUBJECTS.forEach((subject,index)=>{
+    const section=document.createElement('section');section.className='trophy-subject';
+    const heading=document.createElement('h4');heading.textContent=`${index+1} ${subject}`;
+    const progress=document.createElement('p');progress.className='trophy-progress';progress.textContent=`累計 ${totals[index]}回 ／ 現在の連続 ${streaks.current[index]}回 ／ 最長連続 ${streaks.best[index]}回`;
+    const grid=document.createElement('ul');grid.className='trophy-grid';
+    for(const kind of ['total','streak']) [10,30,50].forEach((threshold,tier)=>{
+      const earned=(kind==='total'?totals[index]:streaks.best[index])>=threshold;
+      const badge=document.createElement('li');badge.className=`trophy-badge ${earned?'earned':'locked'}`;badge.dataset.subject=index;badge.dataset.kind=kind;badge.dataset.threshold=threshold;
+      const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.setAttribute('viewBox','0 0 64 64');icon.setAttribute('aria-hidden','true');icon.classList.add('trophy-icon');
+      const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d','M18 8h28v5h12v8c0 10-6 16-17 17a16 16 0 0 1-6 4v10h11v6H18v-6h11V42a16 16 0 0 1-6-4C12 37 6 31 6 21v-8h12V8zm0 11h-6v2c0 5 3 9 8 10-1-4-2-8-2-12zm28 0c0 4-1 8-2 12 5-1 8-5 8-10v-2h-6z');icon.append(path);
+      const condition=document.createElement('strong');condition.className='trophy-condition';condition.textContent=`${kind==='total'?'累計':'連続'}${threshold}回`;
+      const title=document.createElement('span');title.className='trophy-title';title.textContent=titles[kind][tier];
+      const status=document.createElement('span');status.className='trophy-status';status.textContent=earned?'獲得！':'未達成';
+      badge.append(icon,condition,title,status);grid.append(badge);
+    });
+    section.append(heading,progress,grid);$('#trophy-subjects').append(section);
+  });
+}
 function updateTotals() {
   document.querySelectorAll('[data-total-student]').forEach(element=>{
     element.textContent=`累計 ${totalsFor(Number(element.dataset.totalStudent))[Number(element.dataset.totalSubject)]}回`;
@@ -73,6 +105,7 @@ $('#show').onclick=()=>{
   $('#viewer-date').textContent=`${selectedDate} の提出記録`;
   $('#viewer-items').replaceChildren();
   saved.forEach((value,index)=>{const li=document.createElement('li');const name=document.createElement('strong');name.textContent=`${index+1} ${SUBJECTS[index]}`;const status=document.createElement('span');status.textContent=value?'✓ 提出済み':'未確認';status.className=value?'submitted':'pending';const details=document.createElement('div');details.className='viewer-result';const total=document.createElement('small');total.className='viewer-total';total.textContent=`累計 ${totalsFor(id-1)[index]}回`;details.append(status,total);li.append(name,details);$('#viewer-items').append(li);});
+  renderTrophies(id-1);
   $('#teacher').hidden=true;$('#viewer').hidden=false;notify('');$('#viewer-heading').tabIndex=-1;$('#viewer-heading').focus();window.scrollTo(0,0);
 };
 $('#back').onclick=()=>{$('#viewer').hidden=true;$('#teacher').hidden=false;$('#show').focus();};
