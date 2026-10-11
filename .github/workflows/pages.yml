@@ -10,6 +10,7 @@ on:
       - app.js
       - sw.js
       - manifest.webmanifest
+      - update.html
       - .github/workflows/pages.yml
 
 permissions:
@@ -32,7 +33,7 @@ jobs:
       - name: Prepare only public application files
         run: |
           mkdir -p "$RUNNER_TEMP/homework-site"
-          cp index.html style.css app.js sw.js manifest.webmanifest "$RUNNER_TEMP/homework-site/"
+          cp index.html style.css app.js sw.js manifest.webmanifest update.html "$RUNNER_TEMP/homework-site/"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

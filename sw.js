@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'teacher-homework-local-v7';
+const CACHE = 'teacher-homework-local-v8';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 self.addEventListener('activate', event => event.waitUntil((async()=>{
@@ -14,3 +14,5 @@ self.addEventListener('fetch', event => {
   if(!allowed)return;
   event.respondWith(caches.open(CACHE).then(cache=>cache.match(event.request)).then(cached=>cached||fetch(event.request)));
 });
+
+self.addEventListener('message',event=>{if(event.data?.type==='ACTIVATE_UPDATE')event.waitUntil(self.skipWaiting());});
