@@ -8,6 +8,13 @@ on:
       - index.html
       - style.css
       - app.js
+      - student.html
+      - student.js
+      - peer.js
+      - qr.js
+      - vendor/**
+      - view.js
+      - sync-teacher.js
       - sw.js
       - manifest.webmanifest
       - update.html
@@ -34,8 +41,10 @@ jobs:
       - name: Prepare only public application files
         run: |
           mkdir -p "$RUNNER_TEMP/homework-site"
-          cp index.html style.css app.js sw.js manifest.webmanifest update.html "$RUNNER_TEMP/homework-site/"
+          cp index.html style.css app.js sw.js manifest.webmanifest update.html student.html student.js peer.js view.js sync-teacher.js qr.js "$RUNNER_TEMP/homework-site/"
           mkdir -p "$RUNNER_TEMP/homework-site/assets"
+          mkdir -p "$RUNNER_TEMP/homework-site/vendor"
+          cp vendor/qr-core.js vendor/qrcode-LICENSE.txt vendor/jsqr-LICENSE.txt vendor/dijkstrajs-LICENSE.txt "$RUNNER_TEMP/homework-site/vendor/"
           cp assets/mascot.png "$RUNNER_TEMP/homework-site/assets/"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

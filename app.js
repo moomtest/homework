@@ -17,10 +17,12 @@ function validate(data) {
   for(const [date,flags] of Object.entries(data.exemptions)) {
     if(!validDate(date)||!Array.isArray(flags)||flags.length!==30||flags.some(flag=>typeof flag!=='boolean'))throw new Error('個別の提出不要設定を読み込めません。');
   }
+  if(data.syncRevision===undefined)data.syncRevision=0;
+  if(!Number.isSafeInteger(data.syncRevision)||data.syncRevision<0)throw new Error('保存番号を読み込めません。');
   return data;
 }
 let exemptions=Array(30).fill(false);
-let data={version:1,days:{},holidays:[],exemptions:{}}, baseline=null, rows=blank(), selectedDate=dateKey(), dirty=false, blocked=false, holiday=false;
+let data={version:1,days:{},holidays:[],exemptions:{},syncRevision:0}, baseline=null, rows=blank(), selectedDate=dateKey(), dirty=false, blocked=false, holiday=false;
 function notify(text) { $('#message').textContent=text; }
 try {
   baseline=localStorage.getItem(KEY);
@@ -51,28 +53,7 @@ function streaksFor(studentIndex) {
   }
   return {current,best};
 }
-function renderTrophies(studentIndex) {
-  const totals=totalsFor(studentIndex), streaks=streaksFor(studentIndex);
-  const titles={total:['はじめの一歩','こつこつ名人','積み重ねの達人'],streak:['連続チャレンジャー','継続名人','継続の達人']};
-  $('#trophy-subjects').replaceChildren();
-  SUBJECTS.forEach((subject,index)=>{
-    const section=document.createElement('section');section.className='trophy-subject';
-    const heading=document.createElement('h4');heading.textContent=`${index+1} ${subject}`;
-    const progress=document.createElement('p');progress.className='trophy-progress';progress.textContent=`累計 ${totals[index]}回 ／ 現在の連続 ${streaks.current[index]}回 ／ 最長連続 ${streaks.best[index]}回`;
-    const grid=document.createElement('ul');grid.className='trophy-grid';
-    for(const kind of ['total','streak']) [10,30,50].forEach((threshold,tier)=>{
-      const earned=(kind==='total'?totals[index]:streaks.best[index])>=threshold;
-      const badge=document.createElement('li');badge.className=`trophy-badge ${earned?'earned':'locked'}`;badge.dataset.subject=index;badge.dataset.kind=kind;badge.dataset.threshold=threshold;
-      const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.setAttribute('viewBox','0 0 64 64');icon.setAttribute('aria-hidden','true');icon.classList.add('trophy-icon');
-      const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d','M18 8h28v5h12v8c0 10-6 16-17 17a16 16 0 0 1-6 4v10h11v6H18v-6h11V42a16 16 0 0 1-6-4C12 37 6 31 6 21v-8h12V8zm0 11h-6v2c0 5 3 9 8 10-1-4-2-8-2-12zm28 0c0 4-1 8-2 12 5-1 8-5 8-10v-2h-6z');icon.append(path);
-      const condition=document.createElement('strong');condition.className='trophy-condition';condition.textContent=`${kind==='total'?'累計':'連続'}${threshold}回`;
-      const title=document.createElement('span');title.className='trophy-title';title.textContent=titles[kind][tier];
-      const status=document.createElement('span');status.className='trophy-status';status.textContent=earned?'獲得！':'未達成';
-      badge.append(icon,condition,title,status);grid.append(badge);
-    });
-    section.append(heading,progress,grid);$('#trophy-subjects').append(section);
-  });
-}
+function renderTrophies(studentIndex) {window.renderTrophyCollection({totals:totalsFor(studentIndex),...streaksFor(studentIndex)});}
 function updateTotals() {
   document.querySelectorAll('[data-total-student]').forEach(element=>{
     element.textContent=`累計 ${totalsFor(Number(element.dataset.totalStudent))[Number(element.dataset.totalSubject)]}回`;
@@ -111,10 +92,10 @@ $('#save').onclick=()=>{
     if(localStorage.getItem(KEY)!==baseline){blocked=true;render();notify('別のタブで記録が変更されました。入力内容を控えてから画面を再読み込みしてください。上書きはしていません。');return;}
     const holidays=data.holidays.filter(date=>date!==selectedDate);
     if(holiday)holidays.push(selectedDate);
-    const next={version:1,days:{...data.days,[selectedDate]:rows.map(r=>[...r])},holidays:holidays.sort(),exemptions:{...data.exemptions,[selectedDate]:[...exemptions]}};
+    const next={version:1,syncRevision:data.syncRevision+1,days:{...data.days,[selectedDate]:rows.map(r=>[...r])},holidays:holidays.sort(),exemptions:{...data.exemptions,[selectedDate]:[...exemptions]}};
     const serialized=JSON.stringify(next);localStorage.setItem(KEY,serialized);
     if(localStorage.getItem(KEY)!==serialized)throw new Error('Storage failed');
-    baseline=serialized;data=next;dirty=false;render();notify('この端末に保存しました。児童に見せられます。');
+    baseline=serialized;data=next;dirty=false;render();notify('この端末に保存しました。児童に見せられます。');window.dispatchEvent(new Event('homework-saved'));
   } catch {notify('保存できませんでした。変更はまだ保存されていません。ブラウザの保存設定を確認してください。');}
 };
 $('#show').onclick=()=>{
@@ -137,3 +118,9 @@ loadDate();
 if('serviceWorker' in navigator && location.protocol!=='file:'){
   navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{$('#offline-status').textContent='オフライン用の画面を準備しました。通信を切って再度開けるか確認してください。';}).catch(()=>{$('#offline-status').textContent='オフライン用の準備ができませんでした。記録はこのブラウザに保存します。';});
 }
+
+window.pupilSnapshot=(id)=>{
+  if(blocked||!Number.isInteger(id)||id<1||id>30)throw new Error('保存記録を安全に読み込めません。');
+  if(localStorage.getItem(KEY)!==baseline)throw new Error('別のタブで記録が変わっています。再読み込みしてください。');
+  return {version:1,studentId:id,revision:data.syncRevision,issuedAt:new Date().toISOString(),records:Object.keys(data.days).sort().map(date=>({date,values:[...data.days[date][id-1]],exempt:isExempt(date,id-1)})),stats:{totals:totalsFor(id-1),...streaksFor(id-1)}};
+};

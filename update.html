@@ -2,9 +2,11 @@
 <html lang="ja">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>提出ノートを更新</title>
 <style>body{font-family:system-ui,sans-serif;background:#f5f7f2;color:#273b39;margin:0;padding:24px}main{max-width:560px;margin:40px auto;background:white;border-radius:20px;padding:28px}h1{font-size:24px}p{line-height:1.9}button{font:inherit;background:#247566;color:white;padding:16px;border:0;border-radius:12px;width:100%;cursor:pointer}button:disabled{opacity:.5}#status{min-height:40px}</style></head>
-<body><main><h1>提出ノートを更新</h1><p>保存済みの提出記録を残したまま、画面のプログラムを最新版に切り替えます。</p><p>入力中の記録があれば、先にアプリで保存してください。ほかの提出ノートのタブは閉じて、この画面だけを残してください。</p><button id="update">保存を確認したので、最新版を開く</button><p id="status" role="status" aria-live="polite"></p><a href="./">更新せずアプリに戻る</a></main>
+<body><main><h1>提出ノートを更新</h1><p>保存済みの提出記録を残したまま、画面のプログラムを最新版に切り替えます。</p><p>入力中の記録があれば、先にアプリで保存してください。ほかの提出ノートのタブは閉じて、この画面だけを残してください。</p><button id="update">保存を確認したので、最新版を開く</button><p id="status" role="status" aria-live="polite"></p><a id="return-link" href="./">更新せずアプリに戻る</a></main>
 <script>
 'use strict';
+const destination=new URLSearchParams(location.search).get('target')==='student'?'./student.html':'./';
+document.querySelector('#return-link').href=destination;
 const button=document.querySelector('#update');
 const status=document.querySelector('#status');
 function waitForInstallation(registration) {
@@ -23,7 +25,7 @@ function waitForInstallation(registration) {
 button.onclick=async()=>{
   button.disabled=true;status.textContent='新しい画面を取得しています…';
   try{
-    if(!('serviceWorker' in navigator)) {location.replace('./');return;}
+    if(!('serviceWorker' in navigator)) {location.replace(destination);return;}
     const registration=await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});
     await registration.update();
     const waiting=await waitForInstallation(registration);
@@ -35,7 +37,7 @@ button.onclick=async()=>{
         waiting.postMessage({type:'ACTIVATE_UPDATE'});changed();
       });
     }
-    status.textContent='更新しました。アプリを開きます。';location.replace('./');
+    status.textContent='更新しました。アプリを開きます。';location.replace(destination);
   }catch(error){status.textContent=error.message||'更新できませんでした。通信を確認してください。';button.disabled=false;}
 };
 </script></body></html>
